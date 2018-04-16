@@ -1,0 +1,1 @@
+GRANT SELECT,INSERT,UPDATE,DELETE,CREATE,DROP,ALTER ON woodpecker.* TO woodpecker@localhost IDENTIFIED BY 'woodpecker';

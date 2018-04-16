@@ -1,0 +1,4 @@
+#!/bin/sh
+us=$(vmstat |awk 'NR==3'|awk '{print $13}')
+sy=$(vmstat |awk 'NR==3'|awk '{print $14}')
+echo "{%us%:"$us,"%sy%:"$sy"}"

@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width,initial-scal=1">
+    <title>{% block title %}{% endblock %}</title>
+    <link rel="stylesheet" href="{{ url_for('static',filename='css/bootstrap.min.css') }}">
+    <script src="{{ url_for('static',filename='js/jquery.min.js') }}"></script>
+    <script src="{{ url_for('static',filename='js/bootstrap.min.js') }}"></script>
+    <script src="{{ url_for('static',filename='js/moment.js') }}"></script>
+    <script src="{{ url_for('static',filename='highcharts/highcharts.js') }}"></script>
+<script>
+
+    //给服务器列表的下拉框每个li元素添加点击事件
+    window.onload = function () {
+         var obj_lis = document.getElementById("serverlist").getElementsByTagName("li");
+         for(var i=0;i<obj_lis.length;i++)
+         {
+            obj_lis[i].onclick = function()
+            {
+                getiplist(this.innerText);
+            }
+         }
+    }
+    //根据选择的分组设置btn的现实，并读取当前分组下的ip列表
+    function getiplist(groupname)
+    {
+        var btn=document.getElementById("dropdownMenu1");
+        //直接给btn.innerText = groupname,表示下来的倒三角不显示
+        btn.innerHTML=groupname+"<span class=\"caret\"></span>";
+        getipList(groupname)
+    }
+    //读取分组下的ip地址列表
+    function getipList(groupname) {
+        //alert(groupname);
+        var data = {'gname':groupname};
+        $.ajax({
+            type:'post',
+            async:false,
+            url:"/get_ip_list",
+            data:data,
+            success:function (result) {
+               // alert(result)
+                addIPToUL(result)
+                ;}
+      });
+        //添加ip地址到ul中
+      function addIPToUL(data){
+          delIPFromUL();
+          var ip_str = String(data);
+          var ips = ip_str.split(",");
+               //alert(ips[0]);
+          for(var i=0;i<ips.length;i++)
+          {
+              var li = document.createElement("li");
+              li.setAttribute("class","list-group-item");
+              li.innerText=ips[i];
+              //li.onclick=getSysInfo;
+              li.onclick=getSysInfo;
+              document.getElementById("iplist").appendChild(li);
+          }
+      }
+      //选择新分组之后需要清空当前的ip地址
+      function delIPFromUL() {
+          var obj_ul = document.getElementById("iplist");
+          var obj_lis = document.getElementById("iplist").getElementsByTagName("li");
+          var cnt = obj_lis.length;
+          //alert(cnt);
+          if(cnt>0) {
+              for (var i=cnt-1;i>=0;i--){
+              var m_li=obj_lis[i];
+              obj_ul.removeChild(m_li);
+             }
+          }
+
+      }
+       setInterval(function () {
+        //alert("开始执行");
+        getSysInfo();
+    }, 60000);
+      var curIP = "";
+      //通过IP读取服务器的系统信息
+      function getSysInfo() {
+          var ip = this.innerText;
+          if (typeof(ip)=="undefined")
+          {
+              ip = curIP;
+          }
+         else
+        {
+            curIP = ip;
+        }
+          //alert(ip);
+          var data = {'ip':ip};
+        $.ajax({
+            type:'post',
+            async:false,
+            url:"/get_sys_info",
+            data:data,
+            success:function (result) {
+               // alert(result)
+                drawchart(result,ip)
+                ;}
+      });
+      }
+      //转换时间格式 10：10
+      function changeTimeFormat(datelist) {
+          for(var i=0;i<datelist.length;i++)
+          {
+              datelist[i] = moment(datelist[i]).subtract(8,"hours").format('HH:mm');
+              //alert(datelist[i])
+          }
+          return datelist;
+      }
+      function drawchart(data,ip) {
+
+           changeTimeFormat(data["time"]);
+           //内存显示
+          var options_mem ={
+            chart:{
+                type:'line'
+            },
+            title:{
+                text:'内存使用情况'
+            },
+            subtitle:{
+              text:ip
+            } ,
+            xAxis:{
+                type:'datetime',
+                labels:{
+                    overflow:'justify'
+                },
+                categories:data["time"]
+            },
+            yAxis: {
+                title: {
+                    text: '内存大小(M)'
+                }
+            },
+              legend:{
+                layout: 'vertical',
+                align: 'left',
+                verticalAlign: 'middle'
+              },
+              credits:{
+                enabled:false
+              },
+            series:[{
+                name:'已用',
+                data:data["memused"]
+            },
+                {
+                    name:'总数',
+                    data:data["memtotal"]
+                }]
+        };
+        $('#chart_mem').highcharts(options_mem);
+        //CPU显示
+        var options_cpu ={
+            chart:{
+                type:'line'
+            },
+            title:{
+                text:'CPU使用情况'
+            },
+            subtitle:{
+              text:ip
+            },
+            xAxis:{
+                type:"datetime",
+                dateTimeLabelFormat:{
+                    day:'%H:%M'
+                },
+                labels:{
+                    overflow:'justify'
+                },
+                categories:data["time"]
+            },
+            yAxis:{
+                title:{
+                    text:'百分比(%)'
+                }
+            },
+            legend:{
+                layout: "vertical",
+                align:'left',
+                verticalAlign: "middle"
+            },
+            credits:{
+                enabled:false
+            },
+            series:[{
+                name:'sy',
+                data:data["sy"]
+            },
+                {
+                    name:'us',
+                data:data["us"]
+                },
+                {
+                    name:'total',
+                data:data["totalcpu"]
+                }]
+        };
+        $('#chart_cpu').highcharts(options_cpu);
+      }
+      /*
+        $.getJSON('/get_ip_list',function(data)
+           {
+               var ip_str = String(data);
+               var ips = ip_str.split(",");
+               //alert(ips[0]);
+               for(var i=0;i<ips.length;i++)
+               {
+                   var li = document.createElement("li");
+                   li.innerText=ips[i];
+                   document.getElementById("iplist").appendChild(li);
+               }
+           });
+      */
+    }
+    $(".list-group").text(data);
+    function refreshdata() {
+        // setInterval("getSysInfo()", 60000);
+    }
+</script>
+</head>
+<body>
+<div id="container" style="width:100%">
+    <div id="header" style="background: linear-gradient(blue, white);height: 10%;font-family:'楷体';
+    color:yellow;text-align: center;font-size:40px;">
+        啄木鸟监控系统
+    </div>
+    <div id="leftbar" style="width: 13%;background: whitesmoke;height: 92%;position: absolute;text-align: center;">
+    <div class="dropdown" id="dropdownWrapper">
+	<button type="button" class="btn dropdown-toggle" id="dropdownMenu1"
+			data-toggle="dropdown">
+		服务器IP列表
+     <span class="caret"></span>
+	</button>
+	<ul id="serverlist" class="dropdown-menu" role="menu" aria-labelledby="dropdownMenu1">
+         {% for group in groupList  %}
+             <li><a role="menuitem" href="#" >{{ group.groupname }}</a></li>
+             <li class="divider"></li>
+         {% else %}
+             <li><a role="menuitem" href="#">读取服务器分组失败</a></li>
+         {% endfor %}
+	</ul>
+    </div>
+    <div style="height:95%;overflow-y:auto">
+        <ul class="list-group" id="iplist">
+        </ul>
+    </div>
+    </div >
+    <div id="mainchart" style="height: 80%;width:87%;background: #8c8c8c;position: absolute;margin-left: 13%">
+        <div id="chart_cpu"  style="height: 50%;width: 50%;background: white;float: left"></div>
+        <div id="chart_mem" style="height: 50%;width: 50%;background:beige;float: right" ></div>
+        <div id="chart_disk"  style="height: 50%;width: 50%;background: beige;float: left;text-align: center;font-size: 30px">磁盘使用情况</div>
+        <div id="chart_io" style="height: 50%;width: 50%;background:white;float: right;text-align: center;font-size: 30px" >硬盘/网络IO情况</div>
+    </div>
+    <div id="errlist" style="height: 100px;width:87%;background: #9acfea;position:absolute;bottom: 0px;margin-left:13%">
+        警告信息区
+         </div>
+</div>
+
+</body>
+</html>
